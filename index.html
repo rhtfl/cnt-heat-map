@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Карта заказов: Тепловая карта и Кластеры</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <style>
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        .button-group {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+        .button-group button {
+            margin: 2px;
+            padding: 5px 10px;
+            background-color: white;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+        .button-group button.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 10px;
+            background-color: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            z-index: 1000;
+            font-size: 14px;
+        }
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .color-box {
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+<div class="button-group">
+    <button id="heatmap-btn" class="active">Тепловая карта</button>
+    <button id="cluster-btn">Кластеры заказов</button>
+    <button id="kml-btn">Сектора одно цвета</button>
+    <button id="geojson-btn">Сектора по цветам ИМов</button>
+    <button id="clear-layers-btn">Убрать сектора</button>
+</div>
+<div id="map"></div>
+<div id="legend" class="legend" style="display: none;">
+    <div class="legend-title">Количество заказов</div>
+    <div><span class="color-box" style="background-color: #0000ff;"></span> 1-5</div>
+    <div><span class="color-box" style="background-color: #00ff00;"></span> 6-10</div>
+    <div><span class="color-box" style="background-color: #ffff00;"></span> 11-20</div>
+    <div><span class="color-box" style="background-color: #ff0000;"></span> 21+</div>
+</div>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat"></script>
+<script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
+<script>
+    var map = L.map('map').setView([55.751244, 37.618423], 10);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Создание группы для кластеризации
+    var markers = L.markerClusterGroup();
+
+    // Создание слоя для тепловой карты
+    var heatLayer;
+
+    fetch('orders.json')
+        .then(response => response.json())
+        .then(data => {
+            var heatData = [];
+            data.orders.forEach(order => {
+                // Добавляем точки в тепловую карту
+                heatData.push([order.latitude, order.longitude, order.weight]);
+
+                // Добавляем точки в кластер
+                var marker = L.marker([order.latitude, order.longitude])
+                    .bindPopup(`Количество заказов: ${order.weight}`);
+                markers.addLayer(marker);
+            });
+
+            // Инициализация тепловой карты
+            heatLayer = L.heatLayer(heatData, {
+                radius: 25,
+                gradient: {
+                    0.2: '#0000ff',  // Синий для низкой плотности (1-5 заказов)
+                    0.4: '#00ff00',  // Зеленый для средней плотности (6-10 заказов)
+                    0.6: '#ffff00',  // Желтый для более высокой плотности (11-20 заказов)
+                    1.0: '#ff0000'   // Красный для самой высокой плотности (21+ заказов)
+                }
+            });
+
+            // По умолчанию показываем тепловую карту
+            heatLayer.addTo(map);
+            document.getElementById('legend').style.display = 'block';
+        });
+
+    // Переменные для хранения слоев KML и GeoJSON
+    var kmlLayer;
+    var geojsonLayer;
+
+    // Функция для обработки стилей из KML файла
+    function processKMLStyles(layer) {
+        if (layer instanceof L.Path) {
+            var color = layer.options.color || '#3388ff';  // стандартный цвет Leaflet
+            layer.setStyle({
+                color: color,
+                weight: 2
+            });
+        }
+    }
+
+    // Загрузка и добавление KML файла на карту
+    document.getElementById('kml-btn').onclick = function() {
+        if (geojsonLayer) {
+            map.removeLayer(geojsonLayer); // Убираем GeoJSON слой, если он есть
+        }
+        if (kmlLayer) {
+            map.removeLayer(kmlLayer); // Убираем предыдущий KML слой, если он есть
+        }
+        kmlLayer = omnivore.kml('object.kml')
+            .on('ready', function() {
+                this.eachLayer(function(layer) {
+                    processKMLStyles(layer);
+                    layer.bindPopup(layer.feature && layer.feature.properties ? layer.feature.properties.description || "Объект" : "Объект");
+                });
+                map.fitBounds(kmlLayer.getBounds());
+            })
+            .addTo(map);
+        setActiveButton(this);
+    };
+
+    // Функция для обработки стилей из GeoJSON файла
+    function processGeoJSONStyles(feature) {
+        return {
+            color: feature.properties.fill || '#3388ff', // цвет линии
+            weight: 2
+        };
+    }
+
+    // Загрузка и добавление GeoJSON файла на карту
+    document.getElementById('geojson-btn').onclick = function() {
+        if (kmlLayer) {
+            map.removeLayer(kmlLayer); // Убираем KML слой, если он есть
+        }
+        if (geojsonLayer) {
+            map.removeLayer(geojsonLayer); // Убираем предыдущий GeoJSON слой, если он есть
+        }
+        fetch('object.geojson')
+            .then(response => response.json())
+            .then(data => {
+                geojsonLayer = L.geoJSON(data, {
+                    style: processGeoJSONStyles,
+                    onEachFeature: function (feature, layer) {
+                        layer.bindPopup(feature.properties.description || "Объект");
+                    }
+                }).addTo(map);
+                map.fitBounds(geojsonLayer.getBounds());
+            });
+        setActiveButton(this);
+    };
+
+    // Очистка слоев KML и GeoJSON с карты
+    document.getElementById('clear-layers-btn').onclick = function() {
+        if (kmlLayer) {
+            map.removeLayer(kmlLayer); // Убираем KML слой
+        }
+        if (geojsonLayer) {
+            map.removeLayer(geojsonLayer); // Убираем GeoJSON слой
+        }
+        setActiveButton(this);
+    };
+
+    // Функции переключения тепловой карты и кластеров
+    document.getElementById('heatmap-btn').onclick = function() {
+        map.removeLayer(markers);  // Убираем кластеры
+        map.addLayer(heatLayer);  // Добавляем тепловую карту
+        setActiveButton(this);
+        document.getElementById('legend').style.display = 'block';  // Показываем легенду
+    };
+
+    document.getElementById('cluster-btn').onclick = function() {
+        map.removeLayer(heatLayer);  // Убираем тепловую карту
+        map.addLayer(markers);  // Добавляем кластеры
+        setActiveButton(this);
+        document.getElementById('legend').style.display = 'none';  // Скрываем легенду
+    };
+
+    function setActiveButton(button) {
+        document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+    }
+</script>
+</body>
+</html>
