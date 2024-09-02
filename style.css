@@ -1,0 +1,159 @@
+#map {
+    height: calc(100% - 100px);
+    width: 100%;
+}
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+
+.button-group {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.button-group button, .button-group input {
+    margin: 2px;
+    padding: 10px;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    flex: 1;
+    text-align: center;
+    transition: background-color 0.3s ease;
+}
+.button-group button.active {
+    background-color: #007bff;
+    color: white;
+}
+.button-group button:hover {
+    background-color: #0056b3;
+    color: white;
+}
+.legend {
+    position: absolute;
+    bottom: 130px;
+    right: 10px;
+    background-color: white;
+    padding: 10px;
+    border: 1px solid #ccc;
+    z-index: 1000;
+    font-size: 14px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border-radius: 5px;
+}
+.legend-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+.color-box {
+    width: 20px;
+    height: 20px;
+    margin-right: 5px;
+    display: inline-block;
+}
+.summary {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    font-size: 14px;
+}
+
+.leaflet-top {
+    top: 87% !important;
+}
+
+.marker-default {
+    background-color: #3388ff;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-weight: bold;
+    border: 2px solid white;
+}
+
+.marker-interval-1 {
+    background-color: #007bff;
+}
+
+.marker-interval-2 {
+    background-color: #28a745;
+}
+
+.marker-interval-3 {
+    background-color: #ffc107;
+}
+
+.leaflet-marker-icon.custom-marker {
+    background-color: transparent;
+    border: none;
+    width: auto;
+    height: auto;
+}
+
+
+
+
+
+/* Мобильная адаптация */
+@media (max-width: 768px) {
+    .button-group {
+        top: auto;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        flex-direction: row;
+        width: 95%;
+    }
+    .button-group button, .button-group input {
+        font-size: 12px;
+        padding: 8px;
+    }
+    .legend {
+        bottom: 70px;
+        right: 10px;
+        font-size: 12px;
+    }
+    .summary {
+        bottom: 90px;
+        left: 10px;
+        right: 10px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .button-group {
+        flex-direction: column;
+        left: 10px;
+        transform: none;
+        width: auto;
+    }
+    .legend {
+        bottom: 90px;
+        right: 10px;
+        font-size: 10px;
+    }
+    .summary {
+        bottom: 110px;
+        left: 10px;
+        right: 10px;
+        font-size: 10px;
+    }
+}
