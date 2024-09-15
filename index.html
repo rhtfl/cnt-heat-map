@@ -9,14 +9,18 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
 </head>
 <body>
-<div class="button-group">
-    <input type="file" id="file-input" accept=".xlsx, .xls" />
-    <button id="heatmap-btn" class="active">Тепловая карта</button>
-    <button id="cluster-btn">Кластеры</button>
-    <button id="kml-btn">Секторы одного цвета</button>
-    <button id="geojson-btn">Секторы по цветам ИМов</button>
-    <button id="clear-layers-btn">Очистить все</button>
-</div>
+    <div class="button-group">
+        <span style="width: 100%; text-align: center; padding: 5px 0px;">Загрузка таблицы с заказами</span>
+        <input type="file" id="file-input" accept=".xlsx, .xls" />
+        <button id="heatmap-btn" class="active">Тепловая карта</button>
+        <button id="cluster-btn">Кластеры</button>
+        <button id="kml-btn">Секторы одного цвета</button>
+        <button id="geojson-btn">Секторы по цветам ИМов</button>
+        <button id="clear-layers-btn">Очистить все</button>
+        <!-- Новая кнопка для загрузки пользовательского KML -->
+        <span style="width: 100%; text-align: center; padding: 5px 0px;">Загрузка KML карты</span>
+        <input type="file" id="custom-kml-input" accept=".kml" />
+    </div>    
 <div id="map"></div>
 <div id="legend" class="legend" style="display: none;">
     <div class="legend-title">Количество заказов</div>

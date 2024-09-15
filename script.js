@@ -215,6 +215,9 @@ document.getElementById('clear-layers-btn').onclick = function() {
     if (kmlLayer) {
         map.removeLayer(kmlLayer); // Убираем KML слой, если он есть
     }
+    if (customKmlLayer) {
+        map.removeLayer(customKmlLayer); // Убираем пользовательский KML слой
+    }
 
     // Очистка данных, чтобы избежать наложения
     warehouseCounts = {};
@@ -243,6 +246,33 @@ function setActiveButton(buttonId) {
     }
 }
 
+// Переменная для пользовательского KML слоя
+var customKmlLayer = null;
+
+document.getElementById('custom-kml-input').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (file) {
+        var reader = new FileReader();
+        reader.onload = function(event) {
+            var kmlData = event.target.result;
+            
+            // Удаляем предыдущий пользовательский KML, если он есть
+            if (customKmlLayer) {
+                map.removeLayer(customKmlLayer);
+            }
+
+            // Создаем новый слой из пользовательского KML
+            customKmlLayer = omnivore.kml.parse(kmlData).on('ready', function() {
+                this.eachLayer(function(layer) {
+                    layer.bindPopup(layer.feature.properties ? layer.feature.properties.description : "Объект");
+                });
+                map.fitBounds(customKmlLayer.getBounds());
+            }).addTo(map);
+        };
+        reader.readAsText(file);
+    }
+});
+
 // Загружайте и обрабатывайте KML и GeoJSON файлы
 document.getElementById('kml-btn').onclick = function() {
     if (geojsonLayer) {
@@ -254,14 +284,14 @@ document.getElementById('kml-btn').onclick = function() {
     kmlLayer = omnivore.kml('object.kml')
         .on('ready', function() {
             this.eachLayer(function(layer) {
-                processKMLStyles(layer);
-                layer.bindPopup(layer.feature && layer.feature.properties ? layer.feature.properties.description || "Объект" : "Объект");
+                layer.bindPopup(layer.feature.properties ? layer.feature.properties.description || "Объект" : "Объект");
             });
             map.fitBounds(kmlLayer.getBounds());
         })
         .addTo(map);
     setActiveButton('kml-btn');
 };
+
 
 document.getElementById('geojson-btn').onclick = function() {
     if (kmlLayer) {
