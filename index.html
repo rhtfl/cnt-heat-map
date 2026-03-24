@@ -2,51 +2,189 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Карта заказов</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <title>Аналитика заказов — тепловая карта</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="">
+    <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-    <div class="button-group">
-        <span style="width: 100%; text-align: center; padding: 5px 0px;">Загрузка таблицы с заказами</span>
-        <input type="file" id="file-input" accept=".xlsx, .xls" />
-        <button id="heatmap-btn" class="active">Тепловая карта</button>
-        <button id="cluster-btn">Кластеры</button>
-        <button id="kml-btn">Секторы одного цвета</button>
-        <button id="geojson-btn">Секторы по цветам ИМов</button>
-        <button id="clear-layers-btn">Очистить все</button>
-        <!-- Новая кнопка для загрузки пользовательского KML -->
-        <span style="width: 100%; text-align: center; padding: 5px 0px;">Загрузка KML карты</span>
-        <input type="file" id="custom-kml-input" accept=".kml" />
-    </div>    
-<div id="map"></div>
-<div id="legend" class="legend" style="display: none;">
-    <div class="legend-title">Количество заказов</div>
-    <div><span class="color-box" style="background-color: #0000ff;"></span> 1-5</div>
-    <div><span class="color-box" style="background-color: #00ff00;"></span> 6-10</div>
-    <div><span class="color-box" style="background-color: #ffff00;"></span> 11-20</div>
-    <div><span class="color-box" style="background-color: #ff0000;"></span> 21+</div>
-</div>
+    <div class="app">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar__brand">
+                <div>
+                    <h1 class="sidebar__title">Тепловая карта</h1>
+                </div>
+            </div>
 
-<div id="summary" class="summary" style="display: none;">
-    <b>Общее количество заказов:</b> <span id="total-orders"></span><br/>
-    <b>Количество заказов ДВД:</b> <span id="dvd-1-count"></span><br/>
-    <b>Количество заказов не ДВД:</b> <span id="dvd-0-count"></span><br/>
-    <b>Общая сумма заказов:</b> <span id="total-amount"></span><br/>
-    <!-- Контейнеры для диаграмм -->
-    
-</div>
+            <div class="sidebar__scroll">
+                <section class="panel">
+                    <h2 class="panel__heading">Данные</h2>
+                    <label class="file-input">
+                        <input type="file" id="file-excel" accept=".xlsx,.xls" hidden>
+                        <span class="file-input__btn">Загрузить таблицу заказов</span>
+                        <span class="file-input__name" id="excel-name">Файл не выбран</span>
+                    </label>
+                    <div class="row-actions">
+                        <button type="button" class="btn btn--ghost" id="btn-reset" disabled>Сбросить всё</button>
+                        <button type="button" class="btn btn--ghost" id="btn-export-csv" disabled>Экспорт CSV</button>
+                    </div>
+                </section>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
-<script src="https://unpkg.com/leaflet.heat"></script>
-<script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Подключаем Chart.js -->
-<script src="script.js"></script>
+                <section class="panel">
+                    <h2 class="panel__heading">Стиль карты</h2>
+                    <div class="filter-group filter-group--map-preset">
+                        <span class="filter-group__legend" id="map-preset-legend">Пресет подложки</span>
+                        <div class="toggles map-preset-list" id="map-preset" role="radiogroup" aria-labelledby="map-preset-legend"></div>
+                    </div>
+                    <div class="map-labels-wrap" id="map-labels-wrap">
+                        <label class="toggle">
+                            <input type="checkbox" id="map-show-labels" checked>
+                            <span>Подписи на карте</span>
+                        </label>
+                        <p class="hint map-labels-hint">Для «Тёмная нейтральная» (Esri) подписи идут отдельным слоем поверх серой базы. У CARTO и OSM они уже внутри тайлов.</p>
+                    </div>
+                    <p class="hint">Выбор сохраняется в браузере. Теплокарта и маркеры не меняются.</p>
+                </section>
+
+                <section class="panel">
+                    <h2 class="panel__heading">Слои карты</h2>
+                    <div class="toggles">
+                        <label class="toggle"><input type="checkbox" id="layer-heat" checked disabled><span>Тепловая карта</span></label>
+                        <label class="toggle" title="Наведите курсор на кластер на карте — подсветится область входящих в него заказов"><input type="checkbox" id="layer-clusters" disabled><span>Кластеры маркеров</span></label>
+                    </div>
+                    <div class="sliders" id="heat-controls">
+                        <label class="slider-label">Радиус тепла <span id="heat-radius-val">25</span></label>
+                        <input type="range" id="heat-radius" min="8" max="50" value="25">
+                        <label class="slider-label">Размытие <span id="heat-blur-val">15</span></label>
+                        <input type="range" id="heat-blur" min="5" max="35" value="15">
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <h2 class="panel__heading">Секторы (KML / GeoJSON)</h2>
+                    <label class="file-input file-input--compact">
+                        <input type="file" id="file-kml" accept=".kml" hidden>
+                        <span class="file-input__btn file-input__btn--sm">KML</span>
+                        <span class="file-input__name" id="kml-name">—</span>
+                    </label>
+                    <label class="file-input file-input--compact">
+                        <input type="file" id="file-geojson" accept=".geojson,.json" hidden>
+                        <span class="file-input__btn file-input__btn--sm">GeoJSON</span>
+                        <span class="file-input__name" id="geojson-name">—</span>
+                    </label>
+                    <button type="button" class="btn btn--ghost btn--block" id="btn-clear-sectors" disabled>Убрать секторы</button>
+                    <div class="sliders sector-style" id="sector-style-controls">
+                        <p class="hint sector-style__hint">Вид полигонов (KML и GeoJSON). Настройки сохраняются в браузере.</p>
+                        <div class="sector-style__colors">
+                            <label class="sector-style__color-label" for="sector-fill-color">Заливка</label>
+                            <input type="color" id="sector-fill-color" value="#6c8cff" title="Цвет заливки" aria-label="Цвет заливки">
+                            <label class="sector-style__color-label" for="sector-stroke-color">Контур</label>
+                            <input type="color" id="sector-stroke-color" value="#b4c8ff" title="Цвет контура" aria-label="Цвет контура">
+                        </div>
+                        <label class="slider-label">Прозрачность заливки <span id="sector-fill-opacity-val">22</span>%</label>
+                        <input type="range" id="sector-fill-opacity" min="0" max="100" value="22">
+                        <label class="slider-label">Прозрачность контура <span id="sector-stroke-opacity-val">85</span>%</label>
+                        <input type="range" id="sector-stroke-opacity" min="0" max="100" value="85">
+                        <label class="slider-label">Толщина контура <span id="sector-weight-val">2</span> px</label>
+                        <input type="range" id="sector-weight" min="0" max="8" value="2">
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <h2 class="panel__heading">Фильтры выборки</h2>
+                    <p class="hint">Влияют на карту, KPI и графики.</p>
+                    <p class="hint"><strong>ДВД</strong> — доставка день в день: совпадают календарные даты «Дата создания заказа» и «Дата доставки» (нужны оба столбца).</p>
+                    <div class="filters" id="filters-container">
+                        <div class="filter-group">
+                            <label for="filter-warehouse">Склад</label>
+                            <select id="filter-warehouse" multiple disabled size="3"></select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-status">Статус заказа</label>
+                            <select id="filter-status" multiple disabled size="3"></select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-service">Служба доставки</label>
+                            <select id="filter-service" multiple disabled size="3"></select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-dvd">ДВД (день в день)</label>
+                            <select id="filter-dvd" disabled>
+                                <option value="">Все</option>
+                                <option value="1">Да (создание = доставка)</option>
+                                <option value="0">Нет (включая без дат)</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn--secondary btn--block" id="btn-filters-clear" disabled>Сбросить фильтры</button>
+                    </div>
+                </section>
+
+                <section class="panel panel--kpi">
+                    <h2 class="panel__heading">Ключевые показатели</h2>
+                    <div class="kpi-grid" id="kpi-grid">
+                        <div class="kpi"><span class="kpi__label">Заказов</span><span class="kpi__value" id="kpi-orders">—</span></div>
+                        <div class="kpi"><span class="kpi__label">Сумма, ₽</span><span class="kpi__value" id="kpi-sum">—</span></div>
+                        <div class="kpi"><span class="kpi__label">Средний чек</span><span class="kpi__value" id="kpi-avg">—</span></div>
+                        <div class="kpi"><span class="kpi__label">ДВД день-в-день / остальные</span><span class="kpi__value kpi__value--sm" id="kpi-dvd">—</span></div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <h2 class="panel__heading">Аналитика доставки</h2>
+                    <div class="accordion" id="charts-accordion">
+                        <details open>
+                            <summary>Склады</summary>
+                            <div class="chart-wrap"><canvas id="chart-warehouse" height="180"></canvas></div>
+                        </details>
+                        <details>
+                            <summary>Интервалы доставки</summary>
+                            <div class="chart-wrap chart-wrap--intervals"><canvas id="chart-intervals" height="340"></canvas></div>
+                        </details>
+                        <details>
+                            <summary>Статусы заказов</summary>
+                            <div class="chart-wrap"><canvas id="chart-status" height="200"></canvas></div>
+                        </details>
+                        <details>
+                            <summary>Службы доставки</summary>
+                            <div class="chart-wrap"><canvas id="chart-service" height="220"></canvas></div>
+                        </details>
+                        <details>
+                            <summary>Зоны доставки (топ-12)</summary>
+                            <div class="chart-wrap"><canvas id="chart-zones" height="260"></canvas></div>
+                        </details>
+                        <details>
+                            <summary>Способы оплаты</summary>
+                            <div class="chart-wrap"><canvas id="chart-payment" height="200"></canvas></div>
+                        </details>
+                        <details>
+                            <summary>Курьеры (топ-10)</summary>
+                            <div class="chart-wrap"><canvas id="chart-courier" height="220"></canvas></div>
+                        </details>
+                    </div>
+                </section>
+            </div>
+        </aside>
+
+        <main class="map-shell map-shell--ui-dark">
+            <div id="map" class="map map-tiles--blue" role="application" aria-label="Карта заказов"></div>
+            <div class="legend" id="legend" hidden>
+                <div class="legend__title">Плотность заказов</div>
+                <div class="legend__row"><span class="legend__swatch" style="--c:#3b5bdb"></span> низкая</div>
+                <div class="legend__row"><span class="legend__swatch" style="--c:#15aabf"></span></div>
+                <div class="legend__row"><span class="legend__swatch" style="--c:#fcc419"></span></div>
+                <div class="legend__row"><span class="legend__swatch" style="--c:#fa5252"></span> высокая</div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin=""></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
-
-
